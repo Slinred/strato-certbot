@@ -1,2 +1,2 @@
 #!/bin/bash
-docker-compose -f docker/docker-compose.yml up -d strato_certbot
+docker-compose -f docker/docker-compose.yml up -d --force-recreate strato_certbot

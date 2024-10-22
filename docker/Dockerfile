@@ -5,6 +5,12 @@ ENV STRATO_CERTBOT_HOOKS_DIR=${STRATO_CERTBOT_DIR}/hooks
 ENV STRATO_CERTBOT_SCRIPTS_DIR=${STRATO_CERTBOT_DIR}/scripts
 ENV STRATO_CERTBOT_CONFIG_DIR=${STRATO_CERTBOT_DIR}/config
 
+# add full repository to container for test execution
+ADD ./ ${STRATO_CERTBOT_DIR}/
+RUN pip install --no-cache-dir -r ${STRATO_CERTBOT_DIR}/requirements-dev.txt
+RUN python -m pytest ${STRATO_CERTBOT_DIR}/test \
+    && rm -rf ${STRATO_CERTBOT_DIR}
+
 # Install cron and bash (if needed for your script)
 RUN apk add --no-cache bash busybox-suid \
     && apk add --no-cache openrc \
