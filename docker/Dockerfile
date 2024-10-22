@@ -1,10 +1,31 @@
-FROM python:3-alpine as test
-Add ./ ./
-RUN pip install --no-cache-dir -r requirements-dev.txt
-RUN python -m pytest ./test 
+FROM python:3-alpine
 
-FROM certbot/certbot
-Add ./ ./
-RUN chmod +x *.py
-RUN pip3 install --no-cache-dir -r requirements.txt
-ENTRYPOINT ["sh",  "-c", "certbot certonly --agree-tos --no-eff-email --email $EMAIL --manual --preferred-challenges dns --manual-auth-hook /opt/certbot/auth-hook.py --manual-cleanup-hook /opt/certbot/cleanup-hook.py -d $DOMAIN -d *.$DOMAIN"]
+ENV STRATO_CERTBOT_DIR=/strato-certbot
+ENV STRATO_CERTBOT_HOOKS_DIR=${STRATO_CERTBOT_DIR}/hooks
+ENV STRATO_CERTBOT_SCRIPTS_DIR=${STRATO_CERTBOT_DIR}/scripts
+ENV STRATO_CERTBOT_CONFIG_DIR=${STRATO_CERTBOT_DIR}/config
+
+# Install cron and bash (if needed for your script)
+RUN apk add --no-cache bash busybox-suid \
+    && apk add --no-cache openrc \
+    && apk add --no-cache cronie \
+    && apk add --no-cache certbot \
+    && echo "0 3 * * * ${STRATO_CERTBOT_SCRIPTS_DIR}/daily-task.sh >> /var/log/cron.log 2>&1" > /etc/crontabs/root
+
+
+# prepare directories
+RUN mkdir -p ${STRATO_CERTBOT_DIR}
+
+# copy necessary files
+COPY requirements.txt ${STRATO_CERTBOT_DIR}/requirements.txt
+COPY src/*.py ${STRATO_CERTBOT_HOOKS_DIR}/
+COPY scripts/*.sh ${STRATO_CERTBOT_SCRIPTS_DIR}/
+
+RUN chmod +x ${STRATO_CERTBOT_HOOKS_DIR}/*.py \
+    && chmod +x ${STRATO_CERTBOT_SCRIPTS_DIR}/*.sh \
+    && ln -s ${STRATO_CERTBOT_SCRIPTS_DIR}/create-new-wildcard-cert.sh /usr/local/bin/create-new-wildcard-cert.sh \
+    && ls -laR ${STRATO_CERTBOT_DIR} \
+    && pip3 install --root-user-action=ignore --no-cache-dir -r ${STRATO_CERTBOT_DIR}/requirements.txt
+
+
+ENTRYPOINT [ "sh", "-c", "${STRATO_CERTBOT_SCRIPTS_DIR}/entrypoint.sh" ]

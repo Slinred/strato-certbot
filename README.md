@@ -47,24 +47,20 @@ Sometimes it takes a while until the desired DNS record is published, which allo
 }
 ```
 
-## Get certificate
-
-Run Certbot in manual mode:
-
-`sudo certbot certonly --manual --preferred-challenges dns --manual-auth-hook $(pwd)/auth-hook.py --manual-cleanup-hook $(pwd)/cleanup-hook.py -d example.com -d *.example.com`
-
-This will generate a wildcard certificate for your domain without the need to manually enter the TXT records.
-
 ## Docker
 
 The Dockerfile wraps these hook scripts into a certbot runtime.
-The result is a volume with certificates.
+You can/should map a volume or a host path into the container /etc/letsencrypt(/live) in order to get the certificates.
+The container by default is not generating anything, instead only checking periodically (once a day at 3am) for certificate renewal.
+In order to generate a certificate for your domain including a wildcard one, execute the following command in the running container:
+```bash
+docker exec strato_certbot_ct create-new-wildcard-cert.sh my-domain.de webmaster@my-domain.de
+```
+If successful, this will generate the certificates for you and renew them automatically when needed
 
 ### Setup
 
-Change into the `docker` directory.
-
-Edit and copy the certbot.env.sample to certbot.env
+Create a strato-auth.json file based on the [template](samples/strato-auth.json.sample)
 
 ### Build
 
@@ -72,8 +68,5 @@ Run `./build.sh`
 
 ### Run
 
-Run `./run.sh`
+Run `./run.sh` which will build and start the container in detached mode using docker-compose
 
-### Get certificates
-
-A docker volume named "letsencrypt" will be created, the certificates can be found there ( `docker volume inspect letsencrypt` )

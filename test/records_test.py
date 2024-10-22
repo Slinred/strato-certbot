@@ -1,8 +1,10 @@
 import os
-
+import sys
 import pytest
 
-from certbotstratoapi import CertbotStratoApi
+sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
+
+from src.certbotstratoapi import CertbotStratoApi
 
 
 @pytest.fixture(autouse=True)

@@ -11,6 +11,9 @@ from bs4 import BeautifulSoup
 class CertbotStratoApi:
     """Class to validate domains for Certbot with dns-01 challange"""
 
+    STRATO_CONFIG_DIR = os.environ.get("STRATO_CERTBOT_CONFIG_DIR", os.path.dirname(__file__))
+    STRATO_CONFIG_FILE = os.path.join(STRATO_CONFIG_DIR, "strato-auth.json")
+
     def __init__(self, api_url=None):
         """ Initializes the data structure """
         if api_url is None:

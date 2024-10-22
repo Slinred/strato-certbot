@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Cleanup hook in Certbot to Strato dns"""
 import json
-import os
 import sys
 
 from certbotstratoapi import CertbotStratoApi
@@ -11,7 +10,7 @@ def main():
     """Run cleanup hook."""
     # get authentication data
     with open(
-            os.path.dirname(__file__) + os.path.normcase('/strato-auth.json'),
+            CertbotStratoApi.STRATO_CONFIG_FILE,
             encoding='UTF-8',
             ) as file:
         auth = json.load(file)
