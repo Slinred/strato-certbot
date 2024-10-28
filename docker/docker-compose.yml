@@ -1,9 +1,13 @@
 services:
   strato_certbot:
     container_name: strato_certbot
+    # specify PUID and PGID to have certificates owned by this user and group
+    # environment:
+    #   PUID: 1000
+    #   PGID: 1000
     build:
       context: ./..
       dockerfile: docker/Dockerfile
     volumes:
-      - ../config/strato-auth.json:/strato-certbot/config/strato-auth.json,ro
+      - ../config/strato-auth.json:/strato-certbot/config/strato-auth.json:ro
     #  - /my_certs:/etc/letsencrypt/live  # uncomment this to get the certificates into a volume or host
