@@ -35,6 +35,7 @@ def main():
     # Sets all TXT/CNAME/SPF/DKIM records with AMCE record in dns server
     strato.push_txt_records()
     # Sleep to give the DNS Server time to get ready
+    print(f'AUTH-HOOK: Waiting {waiting_time} seconds for DNS to update...', flush=True)
     time.sleep(waiting_time)
 
 

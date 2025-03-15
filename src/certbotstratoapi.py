@@ -1,4 +1,5 @@
 """Certbot-Strato-API Class"""
+import sys
 import os
 import re
 import urllib
@@ -23,7 +24,7 @@ class CertbotStratoApi:
 
         self._logger = logging.getLogger(self.__class__.__name__)
         logfmt = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        loghdlr = logging.StreamHandler()
+        loghdlr = logging.StreamHandler(stream=sys.stdout)
         loghdlr.setFormatter(logfmt)
         self._logger.addHandler(loghdlr)
         self._logger.setLevel(log_level)
