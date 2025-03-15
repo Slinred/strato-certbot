@@ -3,8 +3,11 @@
 echo "----------------------------------------------------------------------------------------------------"
 source /etc/environment
 echo "Running daily task at $(date) as user=$(id -u) and group=$(id -g)"
-cd ${STRATO_CERTBOT_WORK_DIR}
+echo "STRATO environment:"
+env | grep "STRATO_"
+echo ""
 
+cd ${STRATO_CERTBOT_WORK_DIR}
 set -x
 certbot renew \
     -v --manual --preferred-challenges dns \

@@ -28,7 +28,7 @@ if [ "$USER_ID" -ne 0 ] || [ "$GROUP_ID" -ne 0 ]; then
     chmod -R 771 $STRATO_CERTBOT_LOGS_DIR
 fi
 
-printenv > /etc/environment &&
+env | grep STRATO_ | sed 's/^/export /' > /etc/environment &&
 chmod +x /etc/environment
 # Create a crontab file for root user
 echo "Setting up automated certbot renewal task..." &&

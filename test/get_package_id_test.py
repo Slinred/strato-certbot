@@ -18,4 +18,4 @@ def test_parse_second_level_domain(test_input, expected):
 
     strato = CertbotStratoApi()
 
-    assert strato.second_level_domain_name == expected
+    assert strato.base_domain_name == expected

@@ -2,6 +2,7 @@
 import os
 import re
 import urllib
+import logging
 
 import pyotp
 import requests
@@ -11,11 +12,22 @@ from bs4 import BeautifulSoup
 class CertbotStratoApi:
     """Class to validate domains for Certbot with dns-01 challange"""
 
+    BASE_DOMAIN_REGEX = re.compile(r'([\w-]+\.[\w-]+)$')
+    RECORD_PREFIX_REGEX = re.compile(r'^([\w-]+)')
+
     STRATO_CONFIG_DIR = os.environ.get("STRATO_CERTBOT_CONFIG_DIR", os.path.dirname(__file__))
     STRATO_CONFIG_FILE = os.path.join(STRATO_CONFIG_DIR, "strato-auth.json")
 
-    def __init__(self, api_url=None):
+    def __init__(self, api_url=None, log_level=logging.INFO):
         """ Initializes the data structure """
+
+        self._logger = logging.getLogger(self.__class__.__name__)
+        logfmt = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        loghdlr = logging.StreamHandler()
+        loghdlr.setFormatter(logfmt)
+        self._logger.addHandler(loghdlr)
+        self._logger.setLevel(log_level)
+
         if api_url is None:
             self.api_url = 'https://www.strato.de/apps/CustomerService'
         else:
@@ -23,12 +35,11 @@ class CertbotStratoApi:
         self.txt_key = '_acme-challenge'
         self.txt_value = os.environ['CERTBOT_VALIDATION']
         self.domain_name = os.environ['CERTBOT_DOMAIN']
-        self.second_level_domain_name = re.search(r'([\w-]+\.[\w-]+)$',
-            self.domain_name).group(1)
-        print(f'INFO: txt_key: {self.txt_key}')
-        print(f'INFO: txt_value: {self.txt_value}')
-        print(f'INFO: second_level_domain_name: {self.second_level_domain_name}')
-        print(f'INFO: domain_name: {self.domain_name}')
+        self.base_domain_name = self.BASE_DOMAIN_REGEX.search(self.domain_name).group(1) if self.BASE_DOMAIN_REGEX.search(self.domain_name) else self.domain_name
+        self._logger.info(f'INIT: txt_key: {self.txt_key}')
+        self._logger.info(f'INIT: txt_value: {self.txt_value}')
+        self._logger.info(f'INIT: base_domain_name: {self.base_domain_name}')
+        self._logger.info(f'INIT: domain_name: {self.domain_name}')
 
         # setup session for cookie sharing
         headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:126.0) Gecko/20100101 Firefox/126.0'}
@@ -60,10 +71,10 @@ class CertbotStratoApi:
         # Is 2FA used
         soup = BeautifulSoup(response.text, 'html.parser')
         if soup.find('h1', string=re.compile('Zwei\\-Faktor\\-Authentifizierung')) is None:
-            print('INFO: 2FA is not used.')
+            self._logger.info('2FA is not used.')
             return response
         if (not totp_secret) or (not totp_devicename):
-            print('ERROR: 2FA parameter is not completely set.')
+            self._logger.error('2FA parameter is not completely set.')
             return response
 
         param = {'identifier': username}
@@ -73,7 +84,7 @@ class CertbotStratoApi:
         if totp_input is not None:
             param['totp_token'] = totp_input['value']
         else:
-            print('ERROR: Parsing error on 2FA site by totp_token.')
+            self._logger.error('Parsing error on 2FA site by totp_token.')
             return response
 
         # Set parameter 'action_customer_login.x'
@@ -90,12 +101,12 @@ class CertbotStratoApi:
                 param['pw_id'] = device.group('value')
                 break
         if param.get('pw_id') is None:
-            print('ERROR: Parsing error on 2FA site by device name.')
+            self._logger.error('Parsing error on 2FA site by device name.')
             return response
 
         # Set parameter 'totp'
         param['totp'] = pyotp.TOTP(totp_secret).now()
-        print(f'DEBUG: totp: {param.get("totp")}')
+        self._logger.debug(f'totp: {param.get("totp")}')
 
         request = self.http_session.post(self.api_url, param)
         return request
@@ -136,7 +147,7 @@ class CertbotStratoApi:
         if 'sessionID' not in query_parameters:
             return False
         self.session_id = query_parameters['sessionID'][0]
-        print(f'DEBUG: session_id: {self.session_id}')
+        self._logger.debug(f'session_id: {self.session_id}')
         return True
 
 
@@ -151,17 +162,17 @@ class CertbotStratoApi:
         soup = BeautifulSoup(request.text, 'html.parser')
         package_anchor = soup.select_one(
             '#package_list > tbody >'
-            f' tr:has(.package-information:-soup-contains("{self.second_level_domain_name}"))'
+            f' tr:has(.package-information:-soup-contains("{self.base_domain_name}"))'
             ' .jss_with_own_packagename a'
         )
         if package_anchor:
             if package_anchor.has_attr('href'):
                 link_target = urllib.parse.urlparse(package_anchor["href"])
                 self.package_id = urllib.parse.parse_qs(link_target.query)["cID"][0]
-                print(f'INFO: strato package id (cID): {self.package_id}')
+                self._logger.info(f'strato package id (cID): {self.package_id}')
                 return
         
-        print(f'ERROR: Domain {self.second_level_domain_name} not '
+        self._logger.error(f'Domain {self.base_domain_name} not '
             'found in strato packages. Using fallback cID=1')
         self.package_id = 1
 
@@ -173,7 +184,7 @@ class CertbotStratoApi:
             'cID': self.package_id,
             'node': 'ManageDomains',
             'action_show_txt_records': '',
-            'vhost': self.domain_name
+            'vhost': self.base_domain_name
         })
         # No idea what this regex does
         # TODO: rewrite with beautifulsoup
@@ -190,10 +201,23 @@ class CertbotStratoApi:
                 'value': record.group('value')
             })
 
-        print('INFO: Current cname/txt records:')
-        list(print(f'INFO: - {item["prefix"]} {item["type"]}: {item["value"]}')
+        self._logger.info(f"Current cname/txt records for '{self.base_domain_name}':")
+        list(print(f'  {item["type"]}: {item["prefix"]}.{self.base_domain_name} = {item["value"]}')
             for item in self.records)
 
+    def sanitize_record_prefix(self, prefix: str) -> str:
+        """Sanitize the prefix of a record.
+
+        :param prefix str: Prefix of record
+
+        :returns: Sanitized prefix
+        :rtype: str
+
+        """
+        prefix = self.RECORD_PREFIX_REGEX.search(prefix).group(1)
+        if self.domain_name != self.base_domain_name:
+            prefix = f'{prefix}.{self.domain_name.removesuffix(self.base_domain_name).removesuffix(".")}'
+        return prefix
 
     def add_txt_record(self, prefix: str, record_type: str, value: str) -> None:
         """Add a txt/cname record.
@@ -203,6 +227,15 @@ class CertbotStratoApi:
         :param value str: Value of record
 
         """
+        # sanitize the prefix
+        prefix = self.sanitize_record_prefix(prefix)
+
+        if any(r['prefix'] == prefix and r['type'] == record_type for r in self.records):
+            self._logger.info(f'Update {record_type} record: {prefix} = {value}')
+            self.remove_txt_record(prefix, record_type)
+        else:
+            self._logger.info(f'Add {record_type} record: {prefix} = {value}')
+
         self.records.append({
             'prefix': prefix,
             'type': record_type,
@@ -217,6 +250,9 @@ class CertbotStratoApi:
         :param record_type str: Type of record ('TXT' or 'CNAME')
 
         """
+        # sanitize the prefix
+        prefix = self.sanitize_record_prefix(prefix)
+
         for i in reversed(range(len(self.records))):
             if (self.records[i]['prefix'] == prefix
                 and self.records[i]['type'] == record_type):
@@ -235,15 +271,15 @@ class CertbotStratoApi:
 
     def push_txt_records(self) -> None:
         """Push modified txt records to Strato."""
-        print('INFO: New cname/txt records:')
-        list(print(f'INFO: - {item["prefix"]} {item["type"]}: {item["value"]}')
+        self._logger.info('Pushing new domain TXT/CNAME records:')
+        list(print(f'  {item["type"]}: {item["prefix"]}.{self.base_domain_name} = {item["value"]}')
             for item in self.records)
 
         self.http_session.post(self.api_url, {
             'sessionID': self.session_id,
             'cID': self.package_id,
             'node': 'ManageDomains',
-            'vhost': self.domain_name,
+            'vhost': self.base_domain_name,
             'spf_type': 'NONE',
             'prefix': [r['prefix'] for r in self.records],
             'type': [r['type'] for r in self.records],
