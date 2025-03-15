@@ -19,7 +19,7 @@ jobs:
       run: |
         echo $DOCKERHUB_TOKEN | docker login -u "$DOCKERHUB_LOGIN" --password-stdin
     - name: Build and push the docker image
-      run: ./build.sh --push
+      run: /bin/bash ./build.sh --push
     - name: Clean up
       run: |
         docker logout
