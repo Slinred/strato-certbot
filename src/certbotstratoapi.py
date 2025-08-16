@@ -232,7 +232,14 @@ class CertbotStratoApi:
         prefix = self.sanitize_record_prefix(prefix)
 
         if any(r['prefix'] == prefix and r['type'] == record_type for r in self.records):
-            self._logger.info(f'Update {record_type} record: {prefix} = {value}')
+            self._logger.info(f'Appending to {record_type} record: {prefix} += {value}')
+            current_value: str = None
+            for record in self.records:
+                if record['prefix'] == prefix and record['type'] == record_type:
+                    current_value = record['value']
+                    break
+            if current_value:
+                value = '"' + current_value.removeprefix('"').removesuffix('"') + ' ' + value + '"'
             self.remove_txt_record(prefix, record_type)
         else:
             self._logger.info(f'Add {record_type} record: {prefix} = {value}')

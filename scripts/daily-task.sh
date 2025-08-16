@@ -8,6 +8,7 @@ env | grep "STRATO_"
 echo ""
 
 cd ${STRATO_CERTBOT_WORK_DIR}
+source ${STRATO_CERTBOT_VENV_DIR}/bin/activate
 set -x
 certbot renew \
     -v --manual --preferred-challenges dns \
@@ -17,4 +18,5 @@ certbot renew \
     --manual-cleanup-hook ${STRATO_CERTBOT_HOOKS_DIR}/cleanup-hook.py
 { set +x; } &> /dev/null
 
+deactivate
 echo ""

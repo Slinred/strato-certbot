@@ -5,6 +5,7 @@ ENV STRATO_CERTBOT_HOOKS_DIR=${STRATO_CERTBOT_DIR}/hooks
 ENV STRATO_CERTBOT_SCRIPTS_DIR=${STRATO_CERTBOT_DIR}/scripts
 ENV STRATO_CERTBOT_CONFIG_DIR=${STRATO_CERTBOT_DIR}/config
 ENV STRATO_CERTBOT_WORK_DIR=${STRATO_CERTBOT_DIR}/work
+ENV STRATO_CERTBOT_VENV_DIR=${STRATO_CERTBOT_WORK_DIR}/.venv
 ENV STRATO_CERTBOT_LOGS_DIR=${STRATO_CERTBOT_DIR}/logs
 ENV STRATO_CERTBOT_LOG_FILE=${STRATO_CERTBOT_LOGS_DIR}/strato-certbot.log
 
@@ -39,7 +40,10 @@ RUN chmod +x ${STRATO_CERTBOT_HOOKS_DIR}/*.py \
     && chmod +x ${STRATO_CERTBOT_SCRIPTS_DIR}/*.sh \
     && ln -s ${STRATO_CERTBOT_SCRIPTS_DIR}/create-new-wildcard-cert.sh /usr/local/bin/create-new-wildcard-cert.sh \
     && ls -laR ${STRATO_CERTBOT_DIR} \
-    && pip3 install --root-user-action=ignore --no-cache-dir -r ${STRATO_CERTBOT_DIR}/requirements.txt
-
+    && python3 -m venv ${STRATO_CERTBOT_VENV_DIR} \
+    && source ${STRATO_CERTBOT_VENV_DIR}/bin/activate \
+    && python3 -m pip install --upgrade pip \
+    && python3 -m pip install -r ${STRATO_CERTBOT_DIR}/requirements.txt \
+    && deactivate
 
 ENTRYPOINT [ "sh", "-c", "${STRATO_CERTBOT_SCRIPTS_DIR}/entrypoint.sh" ]

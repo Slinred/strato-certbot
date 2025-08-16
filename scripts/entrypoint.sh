@@ -32,7 +32,14 @@ env | grep STRATO_ | sed 's/^/export /' > /etc/environment &&
 chmod +x /etc/environment
 # Create a crontab file for root user
 echo "Setting up automated certbot renewal task..." &&
-echo "0 3 * * * su-exec $USER_ID:$GROUP_ID ${STRATO_CERTBOT_SCRIPTS_DIR}/daily-task.sh >>/var/log/crond.log 2>&1" >> /etc/crontabs/root &&
+DAILY_TASK_CMD="0 3 * * * su-exec $USER_ID:$GROUP_ID ${STRATO_CERTBOT_SCRIPTS_DIR}/daily-task.sh >>/var/log/crond.log 2>&1"
+CRONTAB_LAST=$(tail -n 1 /etc/crontabs/root)
+if [[ "$CRONTAB_LAST" != "$DAILY_TASK_CMD" ]]; then
+    echo "Adding daily task to crontab..."
+    echo "$DAILY_TASK_CMD" >> /etc/crontabs/root
+else
+    echo "Daily task already exists in crontab, skipping..."
+fi
 
 # Start cron and keep container running
 echo "Starting crond..."
